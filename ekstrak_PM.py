@@ -2,7 +2,7 @@ import fitz
 import re
 import os
 
-def extract_text_with_specific_punctuation(pdf_path: str) -> str:
+def extract_text_pm(pdf_path: str) -> str:
     if not os.path.exists(pdf_path):
         print(f"Error: File tidak ditemukan di '{pdf_path}'")
         return ""
@@ -31,7 +31,7 @@ if __name__ == "__main__":
 
     print(f"Memproses file: '{cv_pdf_path}'")
 
-    result_text = extract_text_with_specific_punctuation(cv_pdf_path)
+    result_text = extract_text_pm(cv_pdf_path)
 
     if result_text:
         print("\Ekstrasi untuk PM:")
