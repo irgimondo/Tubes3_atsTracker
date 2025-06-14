@@ -67,14 +67,6 @@ def main():
         cursor = conn.cursor()
         logging.info("Koneksi database berhasil.")
 
-        logging.info("Membersihkan tabel...")
-        cursor.execute("SET FOREIGN_KEY_CHECKS = 0;")
-        cursor.execute("TRUNCATE TABLE ApplicationDetail;")
-        cursor.execute("TRUNCATE TABLE ApplicantProfile;")
-        cursor.execute("SET FOREIGN_KEY_CHECKS = 1;")
-        conn.commit()
-        logging.info("Tabel berhasil dibersihkan.")
-
         for cv_path in cv_files:
             filename = os.path.basename(cv_path)
             logging.info(f"Memproses: {filename}")
