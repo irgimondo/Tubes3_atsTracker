@@ -49,19 +49,41 @@ class ATSApplication:
                 "Database connection failed. Please check your database settings.")
         
         self.current_results = []
-        self.timing_info = {}
-        
+        self.timing_info = {}        
         self.setup_ui()
         
     def setup_ui(self):
         """Setup the user interface"""
-        # Main container
-        main_frame = ttk.Frame(self.root, padding="20")
+        # Create canvas and scrollbar for scrolling functionality
+        canvas = tk.Canvas(self.root, bg="#f0f0f0")
+        scrollbar = ttk.Scrollbar(self.root, orient="vertical", command=canvas.yview)
+        self.scrollable_frame = ttk.Frame(canvas)
+        
+        # Configure scrolling
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        
+        canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        # Pack canvas and scrollbar
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        
+        # Enable mouse wheel scrolling
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        
+        # Main container (now inside scrollable frame)
+        main_frame = ttk.Frame(self.scrollable_frame, padding="20")
         main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         
         # Configure grid weights
-        self.root.columnconfigure(0, weight=1)
-        self.root.rowconfigure(0, weight=1)
+        self.scrollable_frame.columnconfigure(0, weight=1)
+        self.scrollable_frame.rowconfigure(0, weight=1)
         main_frame.columnconfigure(1, weight=1)
         
         # Title
