@@ -1,0 +1,29 @@
+# ATS (Applicant Tracking System) Requirements
+
+# Core dependencies
+mysql-connector-python==8.2.0
+PyMySQL==1.1.0
+
+# PDF processing
+PyMuPDF==1.23.26
+pdfplumber==0.10.3
+reportlab==4.0.4
+
+# GUI framework
+# tkinter  # Built-in with Python
+
+# Data processing and utilities
+pandas==2.1.4
+numpy==1.24.4
+regex==2023.10.3
+
+# Fake data generation for seeding
+Faker==20.1.0
+
+# Additional utilities
+python-dateutil==2.8.2
+pytz==2023.3
+
+# Development dependencies
+pytest==7.4.3
+pytest-cov==4.1.0
