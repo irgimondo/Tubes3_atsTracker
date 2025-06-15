@@ -14,31 +14,42 @@ sys.path.insert(0, project_root)
 
 # Check for required imports
 try:
-    from database import DatabaseConnection
+    from database.database import DatabaseConnection
+    from config import DB_CONFIG
     from src.cv_matcher import CVMatcher
     from src.ekstrak_regex import extract_details_regex, extract_regex
 except ImportError as e:
     print(f"Import Error: {e}")
-    print("Please ensure all required files are present and dependencies are installed.")
-    print("Run 'python scripts/setup.py' to install dependencies.")
-    sys.exit(1)
+    print("Some features may not be available.")
+    # Continue anyway for basic functionality
 
 class ATSApplication:
     def __init__(self, root):
         self.root = root
         self.root.title("ATS - Applicant Tracking System")
         self.root.geometry("1200x800")
-        self.root.configure(bg="#f0f0f0")
-          # Initialize components
-        self.db = DatabaseConnection()
-        self.cv_matcher = CVMatcher()
+        self.root.configure(bg="#f0f0f0")        # Initialize components
+        self.db = DatabaseConnection(
+            host=DB_CONFIG['host'],
+            port=DB_CONFIG['port'],
+            user=DB_CONFIG['user'],
+            password=DB_CONFIG['password'],
+            database=DB_CONFIG['database']
+        )
+        
+        # Initialize CV matcher
+        try:
+            self.cv_matcher = CVMatcher()
+        except:
+            self.cv_matcher = None
+        
+        # Connect to database
+        if not self.db.connect():
+            messagebox.showwarning("Database Warning", 
+                "Database connection failed. Please check your database settings.")
+        
         self.current_results = []
         self.timing_info = {}
-        
-        # Check database connection
-        if not self.db.is_connected():
-            messagebox.showwarning("Database Warning", 
-                "Database connection failed. Running in demo mode with sample data.")
         
         self.setup_ui()
         

@@ -1,7 +1,6 @@
 import os
 import logging
-import mysql.connector
-from mysql.connector import Error
+import pymysql
 from faker import Faker
 
 logging.basicConfig(
@@ -17,8 +16,10 @@ DB_CONFIG = {
     'host': 'localhost',
     'port': 3306,
     'user': 'root',
-    'password': '',
-    'database': 'ats_db'
+    'password': 'root',
+    'database': 'ats_db',
+    'charset': 'utf8mb4',
+    'cursorclass': pymysql.cursors.DictCursor
 }
 
 DATA_DIR = "data"
@@ -63,7 +64,7 @@ def main():
 
     conn = None
     try:
-        conn = mysql.connector.connect(**DB_CONFIG)
+        conn = pymysql.connect(**DB_CONFIG)
         cursor = conn.cursor()
         logging.info("Koneksi database berhasil.")
 
@@ -97,14 +98,14 @@ def main():
 
                 logging.info(f"Data untuk '{full_name}' (ID: {applicant_id}) disimpan.")
 
-            except Error as e:
+            except Exception as e:
                 logging.error(f"Gagal menyimpan {filename}: {e}")
                 conn.rollback()
 
         conn.commit()
         logging.info("Proses seeding selesai.")
 
-    except Error as e:
+    except Exception as e:
         if e.errno == 1045:
             logging.error(f"Koneksi Gagal: Akses ditolak untuk user '{DB_CONFIG['user']}'.")
         elif e.errno == 1049:
@@ -112,7 +113,7 @@ def main():
         else:
             logging.error(f"Kesalahan database: {e}")
     finally:
-        if conn and conn.is_connected():
+        if conn:
             cursor.close()
             conn.close()
             logging.info("Koneksi database ditutup.")

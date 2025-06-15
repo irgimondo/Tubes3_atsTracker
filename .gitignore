@@ -338,6 +338,29 @@ pip-delete-this-directory.txt
 # ATS Project Specific
 # ========================================
 
+# Log files
+*.log
+cv_seeding.log
+
+# Temporary test files
+test_*.py
+check_*.py
+debug_*.py
+
+# Database backup files
+*.sql.bak
+
+# IDE configurations
+.vscode/
+.idea/
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Development flags
+requirements_installed.flag
+
 # Generated CV files (keep sample data, but ignore any generated ones)
 data/generated/
 data/temp/

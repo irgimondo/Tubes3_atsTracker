@@ -17,9 +17,7 @@ sys.path.insert(0, project_root)
 def main():
     """Main application entry point"""
     try:
-        print("🚀 Starting ATS - Applicant Tracking System...")
-        
-        # Import and run the GUI application
+        print("🚀 Starting ATS - Applicant Tracking System...")        # Import and run the GUI application
         from gui.main_gui import main as gui_main
         gui_main()
         

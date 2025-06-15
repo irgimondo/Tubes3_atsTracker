@@ -7,7 +7,7 @@ DB_CONFIG = {
     'host': 'localhost',
     'port': 3306,
     'user': 'root',
-    'password': '',
+    'password': 'root',  # Updated password
     'database': 'ats_db',
     'auth_plugin': 'mysql_native_password',  # Use native password auth
     'autocommit': True,
