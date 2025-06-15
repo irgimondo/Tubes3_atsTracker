@@ -1,358 +1,193 @@
-
 import mysql.connector
 from mysql.connector import Error
-from typing import List, Dict, Optional, Tuple
-import json
-import os
-from datetime import datetime
-from config import DB_CONFIG as DATABASE_CONFIG
+import logging
 
 class DatabaseConnection:
-    """Database connection and operations for ATS system"""
-    
-    def __init__(self):
+    def __init__(self, host='localhost', port=3306, user='root', password='', database='ats_db'):
+        self.host = host
+        self.port = port
+        self.user = user
+        self.password = password
+        self.database = database
         self.connection = None
-        self.cursor = None
-        self.connected = False
-        self.mock_mode = False
-        self._initialize_connection()
-        
-    def _initialize_connection(self):
-        """Initialize database connection with fallback to mock mode"""
+
+    def connect(self):
+        """Establish database connection"""
         try:
-            # Try connecting with the configured settings
-            print("🔌 Attempting to connect to MySQL database...")
-            self.connection = mysql.connector.connect(**DATABASE_CONFIG)
+            self.connection = mysql.connector.connect(
+                host=self.host,
+                port=self.port,
+                user=self.user,
+                password=self.password,
+                database=self.database,
+                auth_plugin='mysql_native_password'
+            )
             if self.connection.is_connected():
-                self.cursor = self.connection.cursor(dictionary=True)
-                self.connected = True
-                print("✅ Database connected successfully")
-                self._create_tables_if_not_exist()
+                logging.info("Database connection established successfully")
+                return True
         except Error as e:
-            error_code = e.errno if hasattr(e, 'errno') else 'Unknown'
-            print(f"⚠️  Database connection failed (Error {error_code}): {e}")
-            
-            # Provide specific help for common errors
-            if '2059' in str(e):
-                print("💡 This error usually means:")
-                print("   - MySQL server is not running")
-                print("   - Authentication plugin issue")
-                print("   - Missing MySQL connector dependencies")
-                print("📝 To fix this:")
-                print("   1. Install MySQL Server: https://dev.mysql.com/downloads/mysql/")
-                print("   2. Start MySQL service")
-                print("   3. Create database: CREATE DATABASE ats_db;")
-            elif '1045' in str(e):
-                print("💡 Authentication failed - check username/password in config.py")
-            elif '2003' in str(e):
-                print("💡 Can't connect to MySQL server - check if MySQL is running")
-            
-            print("🔄 Switching to mock mode for demonstration")
-            self.mock_mode = True
-            self._initialize_mock_data()
-        except Exception as e:
-            print(f"⚠️  Unexpected error during database connection: {e}")
-            print("🔄 Switching to mock mode for demonstration")
-            self.mock_mode = True
-            self._initialize_mock_data()
-    
-    def _create_tables_if_not_exist(self):
-        """Create tables if they don't exist"""
+            logging.error(f"Error connecting to database: {e}")
+            return False
+
+    def disconnect(self):
+        """Close database connection"""
+        if self.connection and self.connection.is_connected():
+            self.connection.close()
+            logging.info("Database connection closed")
+
+    def is_connected(self):
+        """Check if database is connected"""
+        return self.connection and self.connection.is_connected()
+
+    def execute_query(self, query, params=None):
+        """Execute SELECT query and return results"""
         try:
-            # Read and execute schema
-            schema_file = "database_schema.sql"
-            if os.path.exists(schema_file):
-                with open(schema_file, 'r') as file:
-                    schema = file.read()
-                    # Execute each statement separately
-                    for statement in schema.split(';'):
-                        if statement.strip():
-                            self.cursor.execute(statement)
-                    self.connection.commit()
-                    print("✅ Database tables created/verified")
-        except Error as e:
-            print(f"❌ Error creating tables: {e}")
-    
-    def _initialize_mock_data(self):
-        """Initialize mock data for demonstration"""
-        self.mock_applicants = [
-            {
-                'id': 1,
-                'name': 'John Smith',
-                'email': 'john.smith@email.com',
-                'phone': '+1-555-0123',
-                'position': 'Software Engineer',
-                'summary': 'Experienced software engineer with 5+ years in full-stack development. Proficient in Python, JavaScript, React, and SQL.',
-                'skills': 'Python, JavaScript, React, Node.js, SQL, Git, Docker',
-                'experience': '5 years at TechCorp as Senior Developer, 2 years at StartupXYZ as Full Stack Engineer',
-                'education': 'Bachelor of Computer Science - MIT (2015)',
-                'cv_path': 'data/engineer/cv_001.pdf',
-                'created_at': '2024-01-15 10:30:00'
-            },
-            {
-                'id': 2,
-                'name': 'Sarah Johnson',
-                'email': 'sarah.johnson@email.com',
-                'phone': '+1-555-0456',
-                'position': 'UI/UX Designer',
-                'summary': 'Creative UI/UX designer with strong background in user-centered design and prototyping.',
-                'skills': 'Figma, Adobe XD, Sketch, Photoshop, Illustrator, Prototyping, User Research',
-                'experience': '3 years at DesignStudio as UI Designer, 2 years at Creative Agency as Junior Designer',
-                'education': 'Bachelor of Fine Arts - Design Institute (2018)',
-                'cv_path': 'data/designer/cv_001.pdf',
-                'created_at': '2024-01-14 14:20:00'
-            },
-            {
-                'id': 3,
-                'name': 'Michael Brown',
-                'email': 'michael.brown@email.com',
-                'phone': '+1-555-0789',
-                'position': 'HR Manager',
-                'summary': 'Experienced HR professional with expertise in talent acquisition and employee relations.',
-                'skills': 'Recruitment, Talent Acquisition, Employee Relations, Performance Management, HRIS',
-                'experience': '4 years at CorporateHR as HR Specialist, 3 years at BusinessCorp as Recruiter',
-                'education': 'Master of Human Resources - Business University (2016)',
-                'cv_path': 'data/hr/cv_001.pdf',
-                'created_at': '2024-01-13 09:15:00'
-            },
-            {
-                'id': 4,
-                'name': 'Emily Davis',
-                'email': 'emily.davis@email.com',
-                'phone': '+1-555-0321',
-                'position': 'Marketing Specialist',
-                'summary': 'Digital marketing expert with focus on SEO, content marketing, and social media strategies.',
-                'skills': 'Digital Marketing, SEO, Content Marketing, Social Media, Google Analytics, PPC',
-                'experience': '3 years at MarketingPro as Digital Marketer, 2 years at AdAgency as Marketing Assistant',
-                'education': 'Bachelor of Marketing - Commerce College (2019)',
-                'cv_path': 'data/marketing/cv_001.pdf',
-                'created_at': '2024-01-12 16:45:00'
-            },
-            {
-                'id': 5,
-                'name': 'David Wilson',
-                'email': 'david.wilson@email.com',
-                'phone': '+1-555-0654',
-                'position': 'Sales Manager',
-                'summary': 'Results-driven sales professional with proven track record in B2B sales and client relationship management.',
-                'skills': 'B2B Sales, CRM, Lead Generation, Negotiation, Account Management, Salesforce',
-                'experience': '5 years at SalesCorp as Senior Sales Rep, 3 years at BusinessSolutions as Sales Associate',
-                'education': 'Bachelor of Business Administration - Sales University (2014)',
-                'cv_path': 'data/sales/cv_001.pdf',
-                'created_at': '2024-01-11 11:30:00'
-            }
-        ]
-    
-    def search_applicants(self, query: str, algorithm: str = 'kmp') -> List[Dict]:
-        """Search applicants based on keywords"""
-        if self.mock_mode:
-            return self._mock_search(query)
-        
-        try:
-            sql = """
-            SELECT * FROM applicants 
-            WHERE name LIKE %s OR email LIKE %s OR position LIKE %s 
-            OR skills LIKE %s OR summary LIKE %s OR experience LIKE %s
-            ORDER BY created_at DESC            """
-            search_term = f"%{query}%"
-            params = (search_term, search_term, search_term, search_term, search_term, search_term)
-            
-            self.cursor.execute(sql, params)
-            results = self.cursor.fetchall()
+            cursor = self.connection.cursor(dictionary=True)
+            cursor.execute(query, params)
+            results = cursor.fetchall()
+            cursor.close()
             return results
         except Error as e:
-            print(f"❌ Search error: {e}")
+            logging.error(f"Error executing query: {e}")
             return []
-    
-    def _mock_search(self, query: str) -> List[Dict]:
-        """Mock search for demonstration"""
-        query_lower = query.lower()
-        results = []
-        
-        for applicant in self.mock_applicants:
-            # Search in all text fields
-            searchable_text = (
-                f"{applicant['name']} {applicant['position']} {applicant['skills']} "
-                f"{applicant['summary']} {applicant['experience']} {applicant['education']}"
-            ).lower()
-            
-            if query_lower in searchable_text:
-                results.append(applicant.copy())
-        
-        return results
-    
-    def get_all_applicants(self) -> List[Dict]:
-        """Get all applicants with their CV data from the proper schema"""
-        if self.mock_mode:
-            return self.mock_applicants.copy()
-        
+
+    def execute_insert(self, query, params=None):
+        """Execute INSERT query and return last inserted ID"""
         try:
-            # Query using the actual schema from tubes3_seeding.sql
+            cursor = self.connection.cursor()
+            cursor.execute(query, params)
+            self.connection.commit()
+            last_id = cursor.lastrowid
+            cursor.close()
+            return last_id
+        except Error as e:
+            logging.error(f"Error executing insert: {e}")
+            self.connection.rollback()
+            return None
+
+    def get_all_cv_data(self):
+        """Get all CV data from database"""
+        # If database connection is available, use real data
+        if self.connection and self.connection.is_connected():
             query = """
             SELECT 
                 ap.applicant_id,
                 ap.first_name,
                 ap.last_name,
-                CONCAT(COALESCE(ap.first_name, ''), ' ', COALESCE(ap.last_name, '')) as name,
                 ap.phone_number,
+                ap.email,
                 ap.address,
                 ap.date_of_birth,
-                ad.detail_id,
-                ad.application_role as position,
+                ad.application_id,
+                ad.application_role,
                 ad.cv_path
             FROM ApplicantProfile ap
-            LEFT JOIN ApplicationDetail ad ON ap.applicant_id = ad.applicant_id
-            WHERE ad.cv_path IS NOT NULL
-            ORDER BY ap.applicant_id, ad.detail_id
+            JOIN ApplicationDetail ad ON ap.applicant_id = ad.applicant_id
+            ORDER BY ap.first_name, ap.last_name
             """
-            self.cursor.execute(query)
-            return self.cursor.fetchall()
-        except Error as e:
-            print(f"❌ Error fetching applicants: {e}")
-            print("🔄 Falling back to mock data...")
-            self.mock_mode = True
-            return self.mock_applicants.copy()
-    
-    def get_applicant_by_id(self, applicant_id: int) -> Optional[Dict]:
-        """Get specific applicant by ID"""
-        if self.mock_mode:
-            for applicant in self.mock_applicants:
-                if applicant['id'] == applicant_id:
-                    return applicant.copy()
-            return None
-        
-        try:
-            self.cursor.execute("SELECT * FROM applicants WHERE id = %s", (applicant_id,))
-            return self.cursor.fetchone()
-        except Error as e:
-            print(f"❌ Error fetching applicant: {e}")
-            return None
-    
-    def add_applicant(self, applicant_data: Dict) -> bool:
-        """Add new applicant to database"""
-        if self.mock_mode:
-            new_id = max([a['id'] for a in self.mock_applicants]) + 1
-            applicant_data['id'] = new_id
-            applicant_data['created_at'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            self.mock_applicants.append(applicant_data)
-            return True
-        
-        try:
-            sql = """
-            INSERT INTO applicants (name, email, phone, position, summary, skills, experience, education, cv_path)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """
-            values = (
-                applicant_data['name'],
-                applicant_data['email'],
-                applicant_data['phone'],
-                applicant_data['position'],
-                applicant_data['summary'],
-                applicant_data['skills'],
-                applicant_data['experience'],
-                applicant_data['education'],
-                applicant_data['cv_path']
-            )
-            
-            self.cursor.execute(sql, values)
-            self.connection.commit()
-            return True
-        except Error as e:
-            print(f"❌ Error adding applicant: {e}")
-            return False
-    
-    def update_applicant(self, applicant_id: int, applicant_data: Dict) -> bool:
-        """Update existing applicant"""
-        if self.mock_mode:
-            for i, applicant in enumerate(self.mock_applicants):
-                if applicant['id'] == applicant_id:
-                    self.mock_applicants[i].update(applicant_data)
-                    return True
-            return False
-        
-        try:
-            sql = """
-            UPDATE applicants 
-            SET name=%s, email=%s, phone=%s, position=%s, summary=%s, skills=%s, experience=%s, education=%s
-            WHERE id=%s
-            """
-            values = (
-                applicant_data['name'],
-                applicant_data['email'],
-                applicant_data['phone'],
-                applicant_data['position'],
-                applicant_data['summary'],
-                applicant_data['skills'],
-                applicant_data['experience'],
-                applicant_data['education'],
-                applicant_id
-            )
-            
-            self.cursor.execute(sql, values)
-            self.connection.commit()
-            return True
-        except Error as e:
-            print(f"❌ Error updating applicant: {e}")
-            return False
-    
-    def delete_applicant(self, applicant_id: int) -> bool:
-        """Delete applicant from database"""
-        if self.mock_mode:
-            self.mock_applicants = [a for a in self.mock_applicants if a['id'] != applicant_id]
-            return True
-        
-        try:
-            self.cursor.execute("DELETE FROM applicants WHERE id = %s", (applicant_id,))
-            self.connection.commit()
-            return True
-        except Error as e:
-            print(f"❌ Error deleting applicant: {e}")
-            return False
-    
-    def get_statistics(self) -> Dict:
-        """Get database statistics"""
-        if self.mock_mode:
-            return {
-                'total_applicants': len(self.mock_applicants),
-                'positions': len(set(a['position'] for a in self.mock_applicants)),
-                'recent_applications': len([a for a in self.mock_applicants 
-                                          if '2024-01' in a['created_at']])
-            }
-        
-        try:
-            stats = {}
-            
-            # Total applicants
-            self.cursor.execute("SELECT COUNT(*) as count FROM applicants")
-            result = self.cursor.fetchone()
-            stats['total_applicants'] = result['count'] if result else 0
-            
-            # Distinct positions
-            self.cursor.execute("SELECT COUNT(DISTINCT position) as count FROM applicants")
-            result = self.cursor.fetchone()
-            stats['positions'] = result['count'] if result else 0
-            
-            # Recent applications (last 30 days)
-            self.cursor.execute("""
-                SELECT COUNT(*) as count FROM applicants 
-                WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-            """)
-            result = self.cursor.fetchone()
-            stats['recent_applications'] = result['count'] if result else 0
-            
-            return stats
-        except Error as e:
-            print(f"❌ Error getting statistics: {e}")
-            return {'total_applicants': 0, 'positions': 0, 'recent_applications': 0}
-    
-    def is_connected(self) -> bool:
-        """Check if database is connected"""
-        return self.connected or self.mock_mode
-    
-    def close_connection(self):
-        """Close database connection"""
+            return self.execute_query(query)
+        else:
+            # Return same mock data as get_all_applicants when database not available
+            return self.get_all_applicants()
+
+    def get_applicant_by_id(self, applicant_id):
+        """Get specific applicant data by ID"""
+        # If database connection is available, use real data
         if self.connection and self.connection.is_connected():
-            self.cursor.close()
-            self.connection.close()
-            self.connected = False
-            print("✅ Database connection closed")
+            query = """
+            SELECT 
+                ap.applicant_id,
+                ap.first_name,
+                ap.last_name,
+                ap.phone_number,
+                ap.email,
+                ap.address,
+                ap.date_of_birth,
+                ad.application_id,
+                ad.application_role,
+                ad.cv_path
+            FROM ApplicantProfile ap
+            JOIN ApplicationDetail ad ON ap.applicant_id = ad.applicant_id
+            WHERE ap.applicant_id = %s
+            """
+            results = self.execute_query(query, (applicant_id,))
+            return results[0] if results else None
+        else:
+            # Search in mock data
+            mock_data = self.get_all_applicants()
+            for applicant in mock_data:
+                if applicant['applicant_id'] == applicant_id:
+                    return applicant
+            return None
+
+    def get_all_applicants(self):
+        """Get all applicants with their CV data - uses mock data when database is not available"""
+        # If database connection is available, use real data
+        if self.connection and self.connection.is_connected():
+            return self.get_all_cv_data()
+        
+        # Mock data for testing when database is not available
+        mock_data = [
+            {
+                'applicant_id': 1,
+                'first_name': 'John',
+                'last_name': 'Doe',
+                'phone_number': '+6281234567890',
+                'email': 'john.doe@email.com',
+                'address': 'Jakarta, Indonesia',
+                'date_of_birth': '1995-01-15',
+                'application_id': 1,
+                'application_role': 'Designer',
+                'cv_path': 'data/Designer/designer_01.pdf'
+            },
+            {
+                'applicant_id': 2,
+                'first_name': 'Jane',
+                'last_name': 'Smith',
+                'phone_number': '+6281234567891',
+                'email': 'jane.smith@email.com',
+                'address': 'Bandung, Indonesia',
+                'date_of_birth': '1993-03-22',
+                'application_id': 2,
+                'application_role': 'Engineer',
+                'cv_path': 'data/Engineer/engineer_01.pdf'
+            },
+            {
+                'applicant_id': 3,
+                'first_name': 'Bob',
+                'last_name': 'Johnson',
+                'phone_number': '+6281234567892',
+                'email': 'bob.johnson@email.com',
+                'address': 'Surabaya, Indonesia',
+                'date_of_birth': '1990-07-10',
+                'application_id': 3,
+                'application_role': 'Marketing',
+                'cv_path': 'data/Marketing/marketing_01.pdf'
+            },
+            {
+                'applicant_id': 4,
+                'first_name': 'Alice',
+                'last_name': 'Brown',
+                'phone_number': '+6281234567893',
+                'email': 'alice.brown@email.com',
+                'address': 'Medan, Indonesia',
+                'date_of_birth': '1992-12-05',
+                'application_id': 4,
+                'application_role': 'HR',
+                'cv_path': 'data/HR/hr_01.pdf'
+            },
+            {
+                'applicant_id': 5,
+                'first_name': 'Charlie',
+                'last_name': 'Wilson',
+                'phone_number': '+6281234567894',
+                'email': 'charlie.wilson@email.com',
+                'address': 'Yogyakarta, Indonesia',
+                'date_of_birth': '1994-09-18',
+                'application_id': 5,
+                'application_role': 'Sales',
+                'cv_path': 'data/Sales/sales_01.pdf'
+            }
+        ]
+        
+        return mock_data

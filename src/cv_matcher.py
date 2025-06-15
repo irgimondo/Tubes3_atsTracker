@@ -142,10 +142,9 @@ class CVMatcher:
         results = []
         total_exact_time = 0
         total_fuzzy_time = 0
-        total_cvs_scanned = len(cv_data_list)
-        
-        for cv_data in cv_data_list:
-            cv_path = cv_data.get('cv_path', '')
+        total_cvs_scanned = len(cv_data_list)        
+        for cv_item in cv_data_list:
+            cv_path = cv_item.get('cv_path', '')
             cv_text = self.extract_cv_text(cv_path)
             
             if not cv_text:
@@ -172,7 +171,7 @@ class CVMatcher:
                 fuzzy_count = len([k for k, v in fuzzy_matches.items() if v])
                 
                 result = {
-                    'cv_data': cv_data,
+                    'cv_data': cv_item,
                     'exact_matches': exact_matches,
                     'fuzzy_matches': fuzzy_matches,
                     'exact_score': exact_count,
