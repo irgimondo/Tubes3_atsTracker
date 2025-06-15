@@ -12,7 +12,8 @@ class CVMatcher:
         
     def extract_cv_text(self, cv_path: str) -> str:
         """Extract text from CV PDF"""
-        if not os.path.exists(cv_path):            return ""
+        if not os.path.exists(cv_path):
+            return ""
         return extract_regex(cv_path)
     
     def exact_match_search(self, text: str, keywords: List[str], algorithm: str) -> Dict:
@@ -25,8 +26,7 @@ class CVMatcher:
         
         for keyword in keywords:
             keyword_lower = keyword.lower().strip()
-            
-            # Use the appropriate algorithm to find all occurrences
+              # Use the appropriate algorithm to find all occurrences
             if algorithm.upper() == 'KMP':
                 positions = kmp_search_all(text_lower, keyword_lower)
             else:  # Boyer-Moore
@@ -44,6 +44,7 @@ class CVMatcher:
         return {
             'matches': matches,
             'execution_time': execution_time,
+            'time_taken': execution_time,  # For backwards compatibility
             'total_matches': sum(match['count'] for match in matches.values())
         }
     
@@ -87,7 +88,56 @@ class CVMatcher:
             'execution_time': execution_time
         }
     
-    def search_cvs(self, cv_data_list: List[Dict], keywords: List[str], algorithm: str) -> Tuple[List[Dict], Dict]:
+    def calculate_relevance_score(self, exact_matches: Dict, fuzzy_matches: Dict, keywords: List[str]) -> float:
+        """Calculate comprehensive relevance score for ranking"""
+        exact_score = 0
+        fuzzy_score = 0
+        keyword_coverage = 0
+        
+        # Calculate exact match score (higher weight)
+        for keyword in keywords:
+            if keyword in exact_matches:
+                count = exact_matches[keyword]['count']
+                # Diminishing returns for multiple occurrences
+                exact_score += min(count * 2.0, 5.0)  # Max 5 points per keyword
+        
+        # Calculate fuzzy match score (lower weight)
+        for keyword in keywords:
+            if keyword in fuzzy_matches and fuzzy_matches[keyword]:
+                best_match = fuzzy_matches[keyword][0]  # Take best match
+                similarity = best_match['similarity']
+                # Only count if similarity is high enough
+                if similarity > 0.6:
+                    fuzzy_score += similarity * 1.5  # Lower weight than exact
+        
+        # Keyword coverage bonus (percentage of keywords found)
+        found_keywords = set()
+        found_keywords.update(exact_matches.keys())
+        found_keywords.update(fuzzy_matches.keys())
+        
+        if keywords:
+            keyword_coverage = len(found_keywords) / len(keywords)
+            coverage_bonus = keyword_coverage * 3.0  # Up to 3 points for full coverage
+        else:
+            coverage_bonus = 0
+        
+        # Calculate total score with weights
+        total_score = (exact_score * 1.0) + (fuzzy_score * 0.7) + (coverage_bonus * 0.5)
+        
+        return round(total_score, 2)
+    
+    def rank_results(self, results: List[Dict], top_n: int = None) -> List[Dict]:
+        """Rank results by relevance score and return top N"""
+        # Sort by total score (descending)
+        ranked_results = sorted(results, key=lambda x: x['total_score'], reverse=True)
+        
+        # Apply top N filter
+        if top_n and top_n > 0:
+            ranked_results = ranked_results[:top_n]
+        
+        return ranked_results
+    
+    def search_cvs(self, cv_data_list: List[Dict], keywords: List[str], algorithm: str, top_n: int = None) -> Tuple[List[Dict], Dict]:
         """Search through all CVs and return ranked results"""
         results = []
         total_exact_time = 0
@@ -102,42 +152,46 @@ class CVMatcher:
                 continue
             
             # Perform exact matching
-            exact_results = self.exact_match_search(cv_text, keywords, algorithm)
-            total_exact_time += exact_results['execution_time']
+            exact_result = self.exact_match_search(cv_text, keywords, algorithm)
+            exact_matches = exact_result['matches']
+            total_exact_time += exact_result['time_taken']
             
-            # Perform fuzzy matching for keywords not found in exact match
-            unmatched_keywords = [kw for kw in keywords if kw not in exact_results['matches']]
-            fuzzy_results = {'fuzzy_matches': {}, 'execution_time': 0}
+            # Perform fuzzy matching for keywords not found exactly
+            unfound_keywords = [kw for kw in keywords if kw not in exact_matches or not exact_matches[kw]]
+            fuzzy_result = self.fuzzy_match_search(cv_text, unfound_keywords)
+            fuzzy_matches = fuzzy_result['fuzzy_matches']
+            total_fuzzy_time += fuzzy_result['execution_time']
             
-            if unmatched_keywords:
-                fuzzy_results = self.fuzzy_match_search(cv_text, unmatched_keywords)
-                total_fuzzy_time += fuzzy_results['execution_time']
+            # Calculate comprehensive score
+            total_score = self.calculate_relevance_score(exact_matches, fuzzy_matches, keywords)
             
-            # Calculate total score
-            exact_score = exact_results['total_matches']
-            fuzzy_score = len(fuzzy_results['fuzzy_matches'])
-            total_score = exact_score + (fuzzy_score * 0.5)  # Weight fuzzy matches less
-            
-            if total_score > 0:  # Only include CVs with matches
-                result_data = {
+            # Only include results with meaningful scores
+            if total_score > 0:
+                # Count matches for display
+                exact_count = sum(info['count'] for info in exact_matches.values())
+                fuzzy_count = len([k for k, v in fuzzy_matches.items() if v])
+                
+                result = {
                     'cv_data': cv_data,
-                    'exact_matches': exact_results['matches'],
-                    'fuzzy_matches': fuzzy_results['fuzzy_matches'],
+                    'exact_matches': exact_matches,
+                    'fuzzy_matches': fuzzy_matches,
+                    'exact_score': exact_count,
+                    'fuzzy_score': fuzzy_count,
                     'total_score': total_score,
-                    'exact_score': exact_score,
-                    'fuzzy_score': fuzzy_score
+                    'cv_text': cv_text[:500] + '...' if len(cv_text) > 500 else cv_text  # Preview
                 }
-                results.append(result_data)
+                
+                results.append(result)
         
-        # Sort by total score (highest first)
-        results.sort(key=lambda x: x['total_score'], reverse=True)
-        
-        # Prepare timing information
+        # Rank and filter results
+        ranked_results = self.rank_results(results, top_n)
+          # Timing information
         timing_info = {
-            'exact_match_time': total_exact_time,
-            'fuzzy_match_time': total_fuzzy_time,
+            'exact_match_time': total_exact_time / 1000,  # Convert to seconds
+            'fuzzy_match_time': total_fuzzy_time / 1000,  # Convert to seconds
             'total_cvs_scanned': total_cvs_scanned,
-            'algorithm_used': algorithm
+            'algorithm_used': algorithm,
+            'results_returned': len(ranked_results)
         }
         
-        return results, timing_info
+        return ranked_results, timing_info

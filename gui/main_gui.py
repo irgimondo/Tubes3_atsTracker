@@ -68,78 +68,144 @@ class ATSApplication:
         self.keywords_entry = ttk.Entry(input_frame, font=("Arial", 11))
         self.keywords_entry.grid(row=0, column=1, sticky=(tk.W, tk.E), pady=(0, 5), padx=(10, 0))
         self.keywords_entry.insert(0, "python, react, sql")  # Default keywords
+          # Algorithm selection with better styling
+        ttk.Label(input_frame, text="Pattern Matching Algorithm:").grid(row=1, column=0, sticky=tk.W, pady=(10, 5))
+        algorithm_frame = ttk.LabelFrame(input_frame, text="Algorithm Selection", padding="10")
+        algorithm_frame.grid(row=1, column=1, sticky=(tk.W, tk.E), pady=(10, 5), padx=(10, 0))
         
-        # Algorithm selection
-        ttk.Label(input_frame, text="Search Algorithm:").grid(row=1, column=0, sticky=tk.W, pady=(10, 5))
-        algorithm_frame = ttk.Frame(input_frame)
-        algorithm_frame.grid(row=1, column=1, sticky=tk.W, pady=(10, 5), padx=(10, 0))
+        self.algorithm_var = tk.StringVar(value="kmp")
         
-        self.algorithm_var = tk.StringVar(value="KMP")
-        ttk.Radiobutton(algorithm_frame, text="KMP (Knuth-Morris-Pratt)", 
-                       variable=self.algorithm_var, value="KMP").pack(side=tk.LEFT, padx=(0, 20))
-        ttk.Radiobutton(algorithm_frame, text="BM (Boyer-Moore)", 
-                       variable=self.algorithm_var, value="BM").pack(side=tk.LEFT)
+        # KMP Radio Button with description
+        kmp_frame = ttk.Frame(algorithm_frame)
+        kmp_frame.pack(fill=tk.X, pady=(0, 5))
+        ttk.Radiobutton(kmp_frame, text="KMP (Knuth-Morris-Pratt)", 
+                       variable=self.algorithm_var, value="kmp").pack(side=tk.LEFT)
+        ttk.Label(kmp_frame, text="- Linear time O(n+m)", 
+                 font=("Arial", 9), foreground="gray").pack(side=tk.LEFT, padx=(10, 0))
         
-        # Top matches selector
-        ttk.Label(input_frame, text="Top Matches to Display:").grid(row=2, column=0, sticky=tk.W, pady=(10, 5))
+        # Boyer-Moore Radio Button with description
+        bm_frame = ttk.Frame(algorithm_frame)
+        bm_frame.pack(fill=tk.X)
+        ttk.Radiobutton(bm_frame, text="BM (Boyer-Moore)", 
+                       variable=self.algorithm_var, value="boyer_moore").pack(side=tk.LEFT)
+        ttk.Label(bm_frame, text="- Efficient for large texts", 
+                 font=("Arial", 9), foreground="gray").pack(side=tk.LEFT, padx=(10, 0))
+          # Top matches selector with better labeling
+        ttk.Label(input_frame, text="Number of Top Results:").grid(row=2, column=0, sticky=tk.W, pady=(15, 5))
+        top_matches_frame = ttk.Frame(input_frame)
+        top_matches_frame.grid(row=2, column=1, sticky=tk.W, pady=(15, 5), padx=(10, 0))
+        
         self.top_matches_var = tk.StringVar(value="10")
-        top_matches_combo = ttk.Combobox(input_frame, textvariable=self.top_matches_var, 
-                                       values=["5", "10", "15", "20", "25"], width=10)
-        top_matches_combo.grid(row=2, column=1, sticky=tk.W, pady=(10, 5), padx=(10, 0))
+        top_matches_combo = ttk.Combobox(top_matches_frame, textvariable=self.top_matches_var, 
+                                       values=["5", "10", "15", "20", "25", "30", "All"], 
+                                       width=8, state="readonly")
+        top_matches_combo.pack(side=tk.LEFT)
+        ttk.Label(top_matches_frame, text="matches to display", 
+                 font=("Arial", 9), foreground="gray").pack(side=tk.LEFT, padx=(5, 0))
         
-        # Search button
+        # Fuzzy matching threshold
+        ttk.Label(input_frame, text="Fuzzy Match Threshold:").grid(row=3, column=0, sticky=tk.W, pady=(10, 5))
+        threshold_frame = ttk.Frame(input_frame)
+        threshold_frame.grid(row=3, column=1, sticky=tk.W, pady=(10, 5), padx=(10, 0))
+        
+        self.threshold_var = tk.DoubleVar(value=0.7)
+        threshold_scale = ttk.Scale(threshold_frame, from_=0.1, to=1.0, 
+                                  variable=self.threshold_var, orient=tk.HORIZONTAL, length=200)
+        threshold_scale.pack(side=tk.LEFT)
+        self.threshold_label = ttk.Label(threshold_frame, text=f"{self.threshold_var.get():.1f}")
+        self.threshold_label.pack(side=tk.LEFT, padx=(10, 0))
+        
+        # Update threshold label when scale changes
+        def update_threshold_label(*args):
+            self.threshold_label.config(text=f"{self.threshold_var.get():.1f}")
+        self.threshold_var.trace('w', update_threshold_label)
+          # Search button with enhanced styling
         search_btn = ttk.Button(input_frame, text="🔍 Search CVs", command=self.search_cvs, 
                                style="Accent.TButton")
-        search_btn.grid(row=3, column=0, columnspan=2, pady=(15, 0))
+        search_btn.grid(row=4, column=0, columnspan=2, pady=(20, 0))
+        
+        # Clear button
+        clear_btn = ttk.Button(input_frame, text="🗑️ Clear Results", command=self.clear_results)
+        clear_btn.grid(row=4, column=1, sticky=tk.E, pady=(20, 0), padx=(10, 0))
         
         # Results Section
         results_frame = ttk.LabelFrame(main_frame, text="Search Results", padding="15")
         results_frame.grid(row=2, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 20))
         results_frame.columnconfigure(0, weight=1)
         results_frame.rowconfigure(1, weight=1)
+          # Performance metrics section
+        performance_frame = ttk.LabelFrame(results_frame, text="Performance Metrics", padding="10")
+        performance_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+        performance_frame.columnconfigure(1, weight=1)
         
-        # Summary section
+        # Performance labels
+        ttk.Label(performance_frame, text="Algorithm Used:", font=("Arial", 9, "bold")).grid(row=0, column=0, sticky=tk.W)
+        self.algorithm_used_label = ttk.Label(performance_frame, text="None", font=("Arial", 9))
+        self.algorithm_used_label.grid(row=0, column=1, sticky=tk.W, padx=(10, 0))
+        
+        ttk.Label(performance_frame, text="Exact Match Time:", font=("Arial", 9, "bold")).grid(row=0, column=2, sticky=tk.W, padx=(20, 0))
+        self.exact_time_label = ttk.Label(performance_frame, text="0.000s", font=("Arial", 9))
+        self.exact_time_label.grid(row=0, column=3, sticky=tk.W, padx=(10, 0))
+        
+        ttk.Label(performance_frame, text="Fuzzy Match Time:", font=("Arial", 9, "bold")).grid(row=1, column=0, sticky=tk.W)
+        self.fuzzy_time_label = ttk.Label(performance_frame, text="0.000s", font=("Arial", 9))
+        self.fuzzy_time_label.grid(row=1, column=1, sticky=tk.W, padx=(10, 0))
+        
+        ttk.Label(performance_frame, text="CVs Processed:", font=("Arial", 9, "bold")).grid(row=1, column=2, sticky=tk.W, padx=(20, 0))
+        self.cvs_processed_label = ttk.Label(performance_frame, text="0", font=("Arial", 9))
+        self.cvs_processed_label.grid(row=1, column=3, sticky=tk.W, padx=(10, 0))
+        
+        # Results summary section
         self.summary_label = ttk.Label(results_frame, text="No search performed yet.", 
-                                      font=("Arial", 10), foreground="gray")
-        self.summary_label.grid(row=0, column=0, sticky=tk.W, pady=(0, 10))
-        
-        # Results treeview
-        columns = ("Name", "Role", "Exact Matches", "Fuzzy Matches", "Total Score")
-        self.results_tree = ttk.Treeview(results_frame, columns=columns, show="headings", height=10)
+                                      font=("Arial", 11), foreground="gray")
+        self.summary_label.grid(row=1, column=0, sticky=tk.W, pady=(10, 10))
+          # Results treeview with enhanced columns
+        columns = ("Rank", "Name", "Role", "Exact Matches", "Fuzzy Matches", "Total Score", "Match Details")
+        self.results_tree = ttk.Treeview(results_frame, columns=columns, show="headings", height=12)
         
         # Configure column headings and widths
+        self.results_tree.heading("Rank", text="Rank")
         self.results_tree.heading("Name", text="Applicant Name")
-        self.results_tree.heading("Role", text="Application Role")
+        self.results_tree.heading("Role", text="Position")
         self.results_tree.heading("Exact Matches", text="Exact Matches")
         self.results_tree.heading("Fuzzy Matches", text="Fuzzy Matches")
         self.results_tree.heading("Total Score", text="Total Score")
+        self.results_tree.heading("Match Details", text="Keywords Found")
         
-        self.results_tree.column("Name", width=200)
-        self.results_tree.column("Role", width=150)
-        self.results_tree.column("Exact Matches", width=120)
-        self.results_tree.column("Fuzzy Matches", width=120)
-        self.results_tree.column("Total Score", width=100)
+        self.results_tree.column("Rank", width=50)
+        self.results_tree.column("Name", width=180)
+        self.results_tree.column("Role", width=120)
+        self.results_tree.column("Exact Matches", width=100)
+        self.results_tree.column("Fuzzy Matches", width=100)
+        self.results_tree.column("Total Score", width=90)
+        self.results_tree.column("Match Details", width=250)
         
-        # Scrollbar for treeview
-        scrollbar = ttk.Scrollbar(results_frame, orient=tk.VERTICAL, command=self.results_tree.yview)
-        self.results_tree.configure(yscrollcommand=scrollbar.set)
+        # Grid the treeview
+        self.results_tree.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         
-        self.results_tree.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-        scrollbar.grid(row=1, column=1, sticky=(tk.N, tk.S))
+        # Scrollbars for treeview
+        scrollbar_y = ttk.Scrollbar(results_frame, orient=tk.VERTICAL, command=self.results_tree.yview)
+        scrollbar_y.grid(row=2, column=1, sticky=(tk.N, tk.S))
+        self.results_tree.configure(yscrollcommand=scrollbar_y.set)
+        
+        scrollbar_x = ttk.Scrollbar(results_frame, orient=tk.HORIZONTAL, command=self.results_tree.xview)
+        scrollbar_x.grid(row=3, column=0, sticky=(tk.W, tk.E))
+        self.results_tree.configure(xscrollcommand=scrollbar_x.set)
         
         # Action buttons
         action_frame = ttk.Frame(results_frame)
-        action_frame.grid(row=2, column=0, pady=(10, 0))
+        action_frame.grid(row=4, column=0, columnspan=2, pady=(10, 0))
         
         ttk.Button(action_frame, text="📄 View Summary", 
                   command=self.view_summary).pack(side=tk.LEFT, padx=(0, 10))
         ttk.Button(action_frame, text="📋 View Full CV", 
-                  command=self.view_full_cv).pack(side=tk.LEFT)
+                  command=self.view_full_cv).pack(side=tk.LEFT, padx=(0, 10))
+        ttk.Button(action_frame, text="📊 Export Results", 
+                  command=self.export_results).pack(side=tk.LEFT)
         
         # Configure styles
         style = ttk.Style()
         style.configure("Accent.TButton", font=("Arial", 11, "bold"))
-        
     def search_cvs(self):
         """Perform CV search based on user input"""
         keywords_text = self.keywords_entry.get().strip()
@@ -147,52 +213,87 @@ class ATSApplication:
             messagebox.showwarning("Input Error", "Please enter keywords to search.")
             return
         
-        keywords = [kw.strip() for kw in keywords_text.split(",") if kw.strip()]
+        keywords = [kw.strip().lower() for kw in keywords_text.split(",") if kw.strip()]
         algorithm = self.algorithm_var.get()
-        top_matches = int(self.top_matches_var.get())
+        
+        # Get top matches setting
+        top_matches_text = self.top_matches_var.get()
+        if top_matches_text.lower() == "all":
+            top_matches = None
+        else:
+            try:
+                top_matches = int(top_matches_text)
+            except ValueError:
+                top_matches = 10
+        
+        # Update CV matcher threshold
+        self.cv_matcher.similarity_threshold = self.threshold_var.get()
         
         # Get all CV data from database
-        cv_data_list = self.db.get_all_cv_data()
+        cv_data_list = self.db.get_all_applicants()
         if not cv_data_list:
             messagebox.showinfo("No Data", "No CV data found in the database.")
             return
         
         # Show loading message
-        self.summary_label.config(text="Searching... Please wait.")
+        self.summary_label.config(text="🔍 Searching CVs... Please wait.")
         self.root.update()
         
         try:
-            # Perform search
-            results, timing_info = self.cv_matcher.search_cvs(cv_data_list, keywords, algorithm)
+            # Perform enhanced search with ranking
+            results, timing_info = self.cv_matcher.search_cvs(cv_data_list, keywords, algorithm, top_matches)
             
-            # Store results
-            self.current_results = results[:top_matches]
+            # Store results and timing
+            self.current_results = results
             self.timing_info = timing_info
             
-            # Update UI
+            # Update UI displays
             self.update_results_display()
-            self.update_summary_display()
+            self.update_performance_display()
             
         except Exception as e:
             messagebox.showerror("Search Error", f"An error occurred during search: {str(e)}")
-            self.summary_label.config(text="Search failed.")
-    
+            self.summary_label.config(text="❌ Search failed.")
+            print(f"Search error details: {e}")  # For debugging
     def update_results_display(self):
-        """Update the results treeview"""
+        """Update the results treeview with enhanced information"""
         # Clear existing items
         for item in self.results_tree.get_children():
             self.results_tree.delete(item)
         
-        # Add new results
-        for result in self.current_results:
+        # Add new results with ranking
+        for i, result in enumerate(self.current_results, 1):
             cv_data = result['cv_data']
-            name = f"{cv_data['first_name']} {cv_data['last_name'] or ''}".strip()
-            role = cv_data.get('application_role', 'N/A')
+            name = f"{cv_data.get('name', cv_data.get('first_name', 'Unknown'))}"
+            if cv_data.get('last_name'):
+                name += f" {cv_data['last_name']}"
+            
+            role = cv_data.get('position', cv_data.get('application_role', 'N/A'))
             exact_matches = result['exact_score']
             fuzzy_matches = result['fuzzy_score']
             total_score = f"{result['total_score']:.1f}"
             
-            self.results_tree.insert("", tk.END, values=(name, role, exact_matches, fuzzy_matches, total_score))
+            # Create keywords found summary
+            keywords_found = []
+            if result.get('exact_matches'):
+                keywords_found.extend(result['exact_matches'].keys())
+            if result.get('fuzzy_matches'):
+                keywords_found.extend([k for k, v in result['fuzzy_matches'].items() if v])
+            
+            match_details = ', '.join(keywords_found[:3])  # Show first 3 keywords
+            if len(keywords_found) > 3:
+                match_details += f" (+{len(keywords_found)-3} more)"
+            
+            # Add alternating row colors
+            tag = "evenrow" if i % 2 == 0 else "oddrow"
+            
+            self.results_tree.insert("", tk.END, values=(
+                f"#{i}", name, role, exact_matches, fuzzy_matches, total_score, match_details
+            ), tags=(tag,))
+        
+        # Configure row colors
+        self.results_tree.tag_configure("evenrow", background="#f8f9fa")
+        self.results_tree.tag_configure("oddrow", background="#ffffff")
     
     def update_summary_display(self):
         """Update the summary display"""
@@ -367,6 +468,96 @@ class ATSApplication:
         """Handle application closing"""
         self.db.disconnect()
         self.root.destroy()
+    
+    def clear_results(self):
+        """Clear all search results"""
+        # Clear treeview
+        for item in self.results_tree.get_children():
+            self.results_tree.delete(item)
+        
+        # Reset labels
+        self.summary_label.config(text="No search performed yet.")
+        self.algorithm_used_label.config(text="None")
+        self.exact_time_label.config(text="0.000s")
+        self.fuzzy_time_label.config(text="0.000s")
+        self.cvs_processed_label.config(text="0")
+        
+        # Clear internal data
+        self.current_results = []
+        self.timing_info = {}
+    
+    def export_results(self):
+        """Export search results to CSV"""
+        if not self.current_results:
+            messagebox.showwarning("No Results", "No search results to export.")
+            return
+        
+        try:
+            from tkinter.filedialog import asksaveasfilename
+            import csv
+            
+            filename = asksaveasfilename(
+                defaultextension=".csv",
+                filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+                title="Save Search Results"
+            )
+            
+            if filename:
+                with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
+                    writer = csv.writer(csvfile)
+                    
+                    # Write header
+                    writer.writerow(['Rank', 'Name', 'Position', 'Email', 'Phone', 
+                                   'Exact Matches', 'Fuzzy Matches', 'Total Score', 'Keywords Found'])
+                    
+                    # Write data
+                    for i, result in enumerate(self.current_results, 1):
+                        cv_data = result['cv_data']
+                        name = f"{cv_data['first_name']} {cv_data['last_name'] or ''}".strip()
+                        
+                        # Get keywords found
+                        keywords_found = []
+                        if result['exact_matches']:
+                            keywords_found.extend(result['exact_matches'].keys())
+                        if result['fuzzy_matches']:
+                            keywords_found.extend(result['fuzzy_matches'].keys())
+                        
+                        writer.writerow([
+                            i, name, cv_data.get('application_role', 'N/A'),
+                            cv_data.get('email', ''), cv_data.get('phone_number', ''),
+                            result['exact_score'], result['fuzzy_score'], 
+                            f"{result['total_score']:.1f}", ', '.join(keywords_found)
+                        ])
+                
+                messagebox.showinfo("Export Complete", f"Results exported to {filename}")
+                
+        except Exception as e:
+            messagebox.showerror("Export Error", f"Failed to export results: {str(e)}")
+
+    def update_performance_display(self):
+        """Update performance metrics display"""
+        if not self.timing_info:
+            return
+        
+        # Update performance labels
+        algorithm = self.timing_info.get('algorithm_used', 'None')
+        exact_time = self.timing_info.get('exact_match_time', 0)
+        fuzzy_time = self.timing_info.get('fuzzy_match_time', 0)
+        total_cvs = self.timing_info.get('total_cvs_scanned', 0)
+        
+        self.algorithm_used_label.config(text=algorithm.upper())
+        self.exact_time_label.config(text=f"{exact_time:.3f}s")
+        self.fuzzy_time_label.config(text=f"{fuzzy_time:.3f}s")
+        self.cvs_processed_label.config(text=str(total_cvs))
+        
+        # Update summary
+        total_results = len(self.current_results)
+        summary_text = f"Found {total_results} matching CVs from {total_cvs} processed"
+        if exact_time > 0 or fuzzy_time > 0:
+            total_time = exact_time + fuzzy_time
+            summary_text += f" | Total processing time: {total_time:.3f}s"
+        
+        self.summary_label.config(text=summary_text)
 
 def main():
     root = tk.Tk()

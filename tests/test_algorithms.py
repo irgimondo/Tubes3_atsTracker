@@ -2,9 +2,9 @@
 Test script to verify KMP, Boyer-Moore, and Levenshtein algorithms
 """
 
-from KMP import kmp_search, kmp_search_all
-from BM import boyer_moore, boyer_moore_all
-from levenshtein import levenshtein_distance
+from algorithms.KMP import kmp_search, kmp_search_all
+from algorithms.BM import boyer_moore, boyer_moore_all
+from algorithms.levenshtein import levenshtein_distance
 
 def test_kmp():
     """Test KMP algorithm"""
