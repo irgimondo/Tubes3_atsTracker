@@ -430,8 +430,7 @@ class ATSApplication:
                     for desc in exp['deskripsi']:
                         formatted += f"    - {desc}\n"
                 formatted += "\n"
-        
-        # Education
+          # Education
         if cv_details['education']:
             formatted += "EDUCATION:\n"
             for edu in cv_details['education']:
@@ -466,8 +465,13 @@ class ATSApplication:
     
     def on_closing(self):
         """Handle application closing"""
-        self.db.disconnect()
-        self.root.destroy()
+        try:
+            if hasattr(self.db, 'close_connection'):
+                self.db.close_connection()
+        except Exception as e:
+            print(f"Warning: Could not close database connection: {e}")
+        finally:
+            self.root.destroy()
     
     def clear_results(self):
         """Clear all search results"""

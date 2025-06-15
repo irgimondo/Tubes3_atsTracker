@@ -20,6 +20,8 @@ class DatabaseConnection:
     def _initialize_connection(self):
         """Initialize database connection with fallback to mock mode"""
         try:
+            # Try connecting with the configured settings
+            print("🔌 Attempting to connect to MySQL database...")
             self.connection = mysql.connector.connect(**DATABASE_CONFIG)
             if self.connection.is_connected():
                 self.cursor = self.connection.cursor(dictionary=True)
@@ -27,7 +29,29 @@ class DatabaseConnection:
                 print("✅ Database connected successfully")
                 self._create_tables_if_not_exist()
         except Error as e:
-            print(f"⚠️  Database connection failed: {e}")
+            error_code = e.errno if hasattr(e, 'errno') else 'Unknown'
+            print(f"⚠️  Database connection failed (Error {error_code}): {e}")
+            
+            # Provide specific help for common errors
+            if '2059' in str(e):
+                print("💡 This error usually means:")
+                print("   - MySQL server is not running")
+                print("   - Authentication plugin issue")
+                print("   - Missing MySQL connector dependencies")
+                print("📝 To fix this:")
+                print("   1. Install MySQL Server: https://dev.mysql.com/downloads/mysql/")
+                print("   2. Start MySQL service")
+                print("   3. Create database: CREATE DATABASE ats_db;")
+            elif '1045' in str(e):
+                print("💡 Authentication failed - check username/password in config.py")
+            elif '2003' in str(e):
+                print("💡 Can't connect to MySQL server - check if MySQL is running")
+            
+            print("🔄 Switching to mock mode for demonstration")
+            self.mock_mode = True
+            self._initialize_mock_data()
+        except Exception as e:
+            print(f"⚠️  Unexpected error during database connection: {e}")
             print("🔄 Switching to mock mode for demonstration")
             self.mock_mode = True
             self._initialize_mock_data()
@@ -129,8 +153,7 @@ class DatabaseConnection:
             SELECT * FROM applicants 
             WHERE name LIKE %s OR email LIKE %s OR position LIKE %s 
             OR skills LIKE %s OR summary LIKE %s OR experience LIKE %s
-            ORDER BY created_at DESC
-            """
+            ORDER BY created_at DESC            """
             search_term = f"%{query}%"
             params = (search_term, search_term, search_term, search_term, search_term, search_term)
             
@@ -159,16 +182,36 @@ class DatabaseConnection:
         return results
     
     def get_all_applicants(self) -> List[Dict]:
-        """Get all applicants"""
+        """Get all applicants with their CV data from the proper schema"""
         if self.mock_mode:
             return self.mock_applicants.copy()
         
         try:
-            self.cursor.execute("SELECT * FROM applicants ORDER BY created_at DESC")
+            # Query using the actual schema from tubes3_seeding.sql
+            query = """
+            SELECT 
+                ap.applicant_id,
+                ap.first_name,
+                ap.last_name,
+                CONCAT(COALESCE(ap.first_name, ''), ' ', COALESCE(ap.last_name, '')) as name,
+                ap.phone_number,
+                ap.address,
+                ap.date_of_birth,
+                ad.detail_id,
+                ad.application_role as position,
+                ad.cv_path
+            FROM ApplicantProfile ap
+            LEFT JOIN ApplicationDetail ad ON ap.applicant_id = ad.applicant_id
+            WHERE ad.cv_path IS NOT NULL
+            ORDER BY ap.applicant_id, ad.detail_id
+            """
+            self.cursor.execute(query)
             return self.cursor.fetchall()
         except Error as e:
             print(f"❌ Error fetching applicants: {e}")
-            return []
+            print("🔄 Falling back to mock data...")
+            self.mock_mode = True
+            return self.mock_applicants.copy()
     
     def get_applicant_by_id(self, applicant_id: int) -> Optional[Dict]:
         """Get specific applicant by ID"""

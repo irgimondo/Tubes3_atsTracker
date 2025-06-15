@@ -9,7 +9,14 @@ DB_CONFIG = {
     'user': 'root',
     'password': '',
     'database': 'ats_db',
-    'auth_plugin': 'mysql_native_password'  # Use native password auth
+    'auth_plugin': 'mysql_native_password',  # Use native password auth
+    'autocommit': True,
+    'use_unicode': True,
+    'charset': 'utf8mb4',
+    'collation': 'utf8mb4_unicode_ci',
+    'sql_mode': 'TRADITIONAL',
+    'raise_on_warnings': True,
+    'allow_local_infile': False
 }
 
 # Application settings
