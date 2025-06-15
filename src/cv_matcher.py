@@ -5,16 +5,26 @@ from algorithms.KMP import kmp_search, kmp_search_all
 from algorithms.BM import boyer_moore, boyer_moore_all
 from algorithms.levenshtein import levenshtein_distance
 from .ekstrak_regex import extract_regex, extract_details_regex
+from database.database import DatabaseConnection
 
 class CVMatcher:
     def __init__(self, similarity_threshold=0.8):
         self.similarity_threshold = similarity_threshold
+        self.db = DatabaseConnection(password='root')
         
     def extract_cv_text(self, cv_path: str) -> str:
         """Extract text from CV PDF"""
-        if not os.path.exists(cv_path):
+        # Handle relative paths from database
+        if not os.path.isabs(cv_path):
+            # Normalize path separators and join with data directory
+            normalized_path = cv_path.replace('\\', os.sep).replace('/', os.sep)
+            full_path = os.path.join('data', normalized_path)
+        else:
+            full_path = cv_path
+            
+        if not os.path.exists(full_path):
             return ""
-        return extract_regex(cv_path)
+        return extract_regex(full_path)
     
     def exact_match_search(self, text: str, keywords: List[str], algorithm: str) -> Dict:
         """Perform exact matching using specified algorithm"""
@@ -194,3 +204,119 @@ class CVMatcher:
         }
         
         return ranked_results, timing_info
+    
+    def get_all_applicants(self) -> List[Dict]:
+        """Get all applicants from database"""
+        try:
+            if not self.db.connect():
+                return []
+            
+            query = """
+            SELECT ap.applicant_id, ap.first_name, ap.last_name, ap.email, ap.phone_number,
+                   ap.summary, ap.skills, ap.experience, ap.education,
+                   ad.application_role, ad.cv_path, ad.application_status
+            FROM ApplicantProfile ap
+            JOIN ApplicationDetail ad ON ap.applicant_id = ad.applicant_id
+            ORDER BY ap.first_name, ap.last_name
+            """
+            
+            results = self.db.execute_query(query)
+            self.db.disconnect()
+            return results if results else []
+            
+        except Exception as e:
+            print(f"Error getting applicants: {e}")
+            return []
+    
+    def search_applicants_kmp(self, keyword: str, limit: int = 50) -> List[Dict]:
+        """Search applicants using KMP algorithm"""
+        return self._search_applicants_with_algorithm(keyword, 'KMP', limit)
+    
+    def search_applicants_boyer_moore(self, keyword: str, limit: int = 50) -> List[Dict]:
+        """Search applicants using Boyer-Moore algorithm"""
+        return self._search_applicants_with_algorithm(keyword, 'BM', limit)
+    
+    def search_applicants_fuzzy(self, keyword: str, limit: int = 50, threshold: float = None) -> List[Dict]:
+        """Search applicants using fuzzy matching (Levenshtein distance)"""
+        if threshold is None:
+            threshold = self.similarity_threshold
+            
+        applicants = self.get_all_applicants()
+        matches = []
+        
+        keyword_lower = keyword.lower().strip()
+        
+        for applicant in applicants:
+            # Combine all searchable text
+            searchable_text = " ".join([
+                str(applicant.get('first_name', '')),
+                str(applicant.get('last_name', '')),
+                str(applicant.get('application_role', '')),
+                str(applicant.get('summary', '')),
+                str(applicant.get('skills', '')),
+                str(applicant.get('experience', '')),
+                str(applicant.get('education', ''))
+            ]).lower()
+            
+            # Split into words for fuzzy matching
+            words = searchable_text.split()
+            best_similarity = 0
+            best_word = ""
+            
+            for word in words:
+                if len(word) < 2:  # Skip very short words
+                    continue
+                    
+                distance = levenshtein_distance(keyword_lower, word)
+                max_len = max(len(keyword_lower), len(word))
+                
+                if max_len > 0:
+                    similarity = 1 - (distance / max_len)
+                    if similarity > best_similarity:
+                        best_similarity = similarity
+                        best_word = word
+            
+            if best_similarity >= threshold:
+                applicant['similarity_score'] = best_similarity
+                applicant['matched_word'] = best_word
+                matches.append(applicant)
+        
+        # Sort by similarity score (highest first)
+        matches.sort(key=lambda x: x['similarity_score'], reverse=True)
+        
+        return matches[:limit]
+    
+    def _search_applicants_with_algorithm(self, keyword: str, algorithm: str, limit: int) -> List[Dict]:
+        """Internal method to search applicants with specified algorithm"""
+        applicants = self.get_all_applicants()
+        matches = []
+        
+        keyword_lower = keyword.lower().strip()
+        
+        for applicant in applicants:
+            # Combine all searchable text
+            searchable_text = " ".join([
+                str(applicant.get('first_name', '')),
+                str(applicant.get('last_name', '')),
+                str(applicant.get('application_role', '')),
+                str(applicant.get('summary', '')),
+                str(applicant.get('skills', '')),
+                str(applicant.get('experience', '')),
+                str(applicant.get('education', ''))
+            ]).lower()
+            
+            # Use the specified algorithm to search
+            if algorithm == 'KMP':
+                positions = kmp_search_all(searchable_text, keyword_lower)
+            else:  # Boyer-Moore
+                positions = boyer_moore_all(searchable_text, keyword_lower)
+            
+            if positions:
+                applicant['match_count'] = len(positions)
+                applicant['match_positions'] = positions
+                matches.append(applicant)
+        
+        # Sort by match count (highest first)
+        matches.sort(key=lambda x: x['match_count'], reverse=True)
+        
+        return matches[:limit]
